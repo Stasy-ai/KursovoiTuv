@@ -21,9 +21,9 @@ namespace KursovoiTuv.ViewModel
 			Orders = new ObservableCollection<Order>();
 			LoadSampleData();
 
-			AddOrderCommand = new RelayCommand(AddOrder);
-			UpdateStatusCommand = new RelayCommand(UpdateOrderStatus);
-			CalculateCostCommand = new RelayCommand(CalculateCost);
+			//AddOrderCommand = new RelayCommand(AddOrder);
+			//UpdateStatusCommand = new RelayCommand(UpdateOrderStatus);
+			//CalculateCostCommand = new RelayCommand(CalculateCost);
 		}
 
 		public ObservableCollection<Order> Orders
