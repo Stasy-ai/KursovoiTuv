@@ -1,0 +1,32 @@
+﻿<Window x:Class="KursovoiTuv.Views.AboutWindow"
+       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="О программе" Height="390" Width="400"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+
+    <Grid Margin="20">
+        <StackPanel>
+            <TextBlock Text="Портал заказов производства" 
+                       FontSize="16" FontWeight="Bold" 
+                       HorizontalAlignment="Center" Margin="0,0,0,20"/>
+
+            <TextBlock Text="Разработчик: Тувышкина А.Д." 
+                       Margin="0,5"/>
+            <TextBlock Text="Группа: 4пк1" 
+                       Margin="0,5"/>
+            <TextBlock Text="Курсовой проект 2025" 
+                       Margin="0,5"/>
+
+            <Rectangle Height="1" Fill="Gray" Margin="0,20,0,10"/>
+
+            <TextBlock Text="Функционал:" FontWeight="Bold" Margin="0,10,0,5"/>
+            <TextBlock Text="• Прием и учет заказов" Margin="10,2"/>
+            <TextBlock Text="• Отслеживание статусов" Margin="10,2"/>
+            <TextBlock Text="• Расчет себестоимости" Margin="10,2"/>
+            <TextBlock Text="• Планирование производственных мощностей" Margin="10,2"/>
+
+            <Button Content="Вернуться" Click="ReturnButton_Click" 
+                    Width="80" Margin="0,20,0,0" Padding="10,5"/>
+        </StackPanel>
+    </Grid>
+</Window>

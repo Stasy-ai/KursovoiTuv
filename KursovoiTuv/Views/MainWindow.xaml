@@ -27,20 +27,28 @@
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
+        <!-- МЕНЮ С КНОПКОЙ О ПРОГРАММЕ -->
+        <Menu Grid.Row="0" >
+            <MenuItem Header="Справка" Foreground="Black">
+                <MenuItem Header="О программе" Click="AboutMenuItem_Click"/>
+            </MenuItem>
+        </Menu>
+
         <!-- Заголовок -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,10,0,10">
             <TextBlock Text="Портал заказов производства" 
                        FontSize="16" FontWeight="Bold"/>
-            <TextBlock Text=" - МеталлПром Инжиниринг" 
+            <TextBlock Text=" - МеталлФэмили Инжиниринг" 
                        FontSize="16" Margin="10,0,0,0"/>
         </StackPanel>
 
         <!-- Основной контент -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="*"/>
@@ -136,7 +144,7 @@
         </Grid>
 
         <!-- Статус бар -->
-        <StatusBar Grid.Row="2" Margin="0,10,0,0">
+        <StatusBar Grid.Row="3" Margin="0,10,0,0">
             <StatusBarItem>
                 <TextBlock Text="{Binding Orders.Count, StringFormat='Всего заказов: {0}'}"/>
             </StatusBarItem>
