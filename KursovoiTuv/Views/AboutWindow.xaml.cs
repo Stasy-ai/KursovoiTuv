@@ -27,13 +27,6 @@ namespace KursovoiTuv.Views
 		private void ReturnButton_Click(object sender, RoutedEventArgs e)
 		{
 			this.Close();
-
-			// ВОССТАНАВЛИВАЕМ ГЛАВНОЕ ОКНО
-			if (Application.Current.MainWindow != null)
-			{
-				Application.Current.MainWindow.Show();
-				Application.Current.MainWindow.Focus();
-			}
 		}
 	}
 }

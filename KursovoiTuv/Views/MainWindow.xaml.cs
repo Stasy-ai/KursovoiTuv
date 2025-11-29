@@ -1,4 +1,5 @@
-﻿using KursovoiTuv.Views;
+﻿using KursovoiTuv.ViewModel;
+using KursovoiTuv.Views;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -20,18 +21,7 @@ namespace KursovoiTuv
 		public MainWindow()
 		{
 			InitializeComponent();
-		}
-
-		private void AboutMenuItem_Click(object sender, RoutedEventArgs e)
-		{
-			var aboutWindow = new AboutWindow();
-			aboutWindow.Owner = this;
-			aboutWindow.ShowDialog();
-		}
-
-		private void ExitMenuItem_Click(object sender, RoutedEventArgs e)
-		{
-			Application.Current.Shutdown();
+			DataContext = new MainViewModel();
 		}
 	}
 }

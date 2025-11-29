@@ -1,27 +1,12 @@
 ﻿<Window x:Class="KursovoiTuv.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:System="clr-namespace:System;assembly=netstandard"
         Title="Портал заказов" 
-        Height="600" Width="900"
+        Height="700" Width="1100"
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
-        <Style x:Key="StatusStyle" TargetType="TextBlock">
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding Status}" Value="New">
-                    <Setter Property="Foreground" Value="Blue"/>
-                    <Setter Property="FontWeight" Value="Bold"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding Status}" Value="InProgress">
-                    <Setter Property="Foreground" Value="Orange"/>
-                    <Setter Property="FontWeight" Value="Bold"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding Status}" Value="Completed">
-                    <Setter Property="Foreground" Value="Green"/>
-                    <Setter Property="FontWeight" Value="Bold"/>
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </Window.Resources>
 
     <Grid Margin="10">
@@ -32,14 +17,12 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- МЕНЮ С КНОПКОЙ О ПРОГРАММЕ -->
-        <Menu Grid.Row="0" >
-            <MenuItem Header="Справка" Foreground="Black">
-                <MenuItem Header="О программе" Click="AboutMenuItem_Click"/>
+        <Menu Grid.Row="0">
+            <MenuItem Header="Справка">
+                <MenuItem Header="О программе" Command="{Binding OpenAboutCommand}"/>
             </MenuItem>
         </Menu>
 
-        <!-- Заголовок -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,10,0,10">
             <TextBlock Text="Портал заказов производства" 
                        FontSize="16" FontWeight="Bold"/>
@@ -47,109 +30,104 @@
                        FontSize="16" Margin="10,0,0,0"/>
         </StackPanel>
 
-        <!-- Основной контент -->
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Список заказов -->
-            <GroupBox Grid.Column="0" Header="Заказы в работе" Margin="0,0,10,0">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                <!-- ПАНЕЛЬ ДОБАВЛЕНИЯ ЗАКАЗА -->
+                <GroupBox Header="Новый заказ" Margin="0,0,0,10">
+                    <Grid Margin="5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5">
-                        <Button Content="Добавить заказ" Command="{Binding AddOrderCommand}" 
-                                Margin="0,0,10,0" Padding="10,5"/>
-                        <Button Content="Рассчитать стоимость" Command="{Binding CalculateCostCommand}"
-                                Margin="0,0,10,0" Padding="10,5"/>
-                    </StackPanel>
+                        <TextBox Grid.Column="0" Text="{Binding NewOrderClient}" 
+                                 Padding="5" Margin="5" ToolTip="Клиент"/>
+                        <TextBox Grid.Column="1" Text="{Binding NewOrderProduct}" 
+                                 Padding="5" Margin="5" ToolTip="Изделие"/>
+                        <TextBox Grid.Column="2" Text="{Binding NewOrderQuantity}" 
+                                 Padding="5" Margin="5" ToolTip="Количество"/>
+                        <ComboBox Grid.Column="3" SelectedValue="{Binding NewOrderPriority}"
+                                 Margin="5" ToolTip="Приоритет">
+                            <System:String>Высокий</System:String>
+                            <System:String>Средний</System:String>
+                            <System:String>Низкий</System:String>
+                        </ComboBox>
+                        <Button Grid.Column="4" Content="➕ Добавить" 
+                                Command="{Binding AddOrderCommand}"
+                                Padding="10,5" Margin="5"/>
+                    </Grid>
+                </GroupBox>
 
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding Orders}" 
+                <!-- СПИСОК ЗАКАЗОВ -->
+                <GroupBox Header="Заказы в работе">
+                    <DataGrid ItemsSource="{Binding Orders}" 
                               SelectedItem="{Binding SelectedOrder}"
                               AutoGenerateColumns="False" IsReadOnly="True"
-                              Margin="5">
+                              Margin="5" Height="300">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="№ заказа" Binding="{Binding OrderNumber}" Width="100"/>
                             <DataGridTextColumn Header="Клиент" Binding="{Binding ClientName}" Width="150"/>
                             <DataGridTextColumn Header="Изделие" Binding="{Binding ProductDescription}" Width="200"/>
                             <DataGridTextColumn Header="Кол-во" Binding="{Binding Quantity}" Width="60"/>
                             <DataGridTextColumn Header="Срок" Binding="{Binding Deadline, StringFormat=d}" Width="80"/>
-                            <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="100">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="HorizontalAlignment" Value="Center"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Status}" Value="New">
-                                                <Setter Property="Background" Value="LightBlue"/>
-                                                <Setter Property="Padding" Value="5,2"/>
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Status}" Value="InProgress">
-                                                <Setter Property="Background" Value="LightYellow"/>
-                                                <Setter Property="Padding" Value="5,2"/>
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Status}" Value="Completed">
-                                                <Setter Property="Background" Value="LightGreen"/>
-                                                <Setter Property="Padding" Value="5,2"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
-                            <DataGridTextColumn Header="Стоимость" 
-                                              Binding="{Binding Cost, StringFormat='C2'}" 
-                                              Width="100"/>
+                            <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="100"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                </Grid>
-            </GroupBox>
+                </GroupBox>
+            </StackPanel>
 
-            <!-- Детали заказа -->
+            <!-- ДЕТАЛИ ЗАКАЗА -->
             <GroupBox Grid.Column="1" Header="Детали заказа">
                 <ScrollViewer>
                     <StackPanel Margin="5" DataContext="{Binding SelectedOrder}">
                         <TextBlock Text="Информация о заказе:" FontWeight="Bold" Margin="0,0,0,10"/>
 
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
+                        <TextBlock Text="{Binding OrderNumber}" FontWeight="Bold" FontSize="14"/>
+                        <TextBlock Text="{Binding ClientName}" Margin="0,5,0,0"/>
+                        <TextBlock Text="{Binding ProductDescription}" Margin="0,5,0,0"/>
+                        <TextBlock Text="{Binding Quantity, StringFormat='Количество: {0} шт.'}" Margin="0,5,0,0"/>
+                        <TextBlock Text="{Binding Deadline, StringFormat='Срок до: {0:d}'}" Margin="0,5,0,0"/>
+                        <TextBlock Text="{Binding Cost, StringFormat='Стоимость: {0:C2}'}" Margin="0,5,0,0"/>
+                        <TextBlock Text="{Binding Status, StringFormat='Статус: {0}'}" Margin="0,5,0,0"/>
+                        <TextBlock Text="{Binding Priority, StringFormat='Приоритет: {0}'}" Margin="0,5,0,0"/>
 
-                            <TextBlock Grid.Row="0" Text="{Binding OrderNumber}" FontWeight="Bold" FontSize="14"/>
-                            <TextBlock Grid.Row="1" Text="{Binding ClientName}" Margin="0,5,0,0"/>
-                            <TextBlock Grid.Row="2" Text="{Binding ProductDescription}" Margin="0,5,0,0"/>
-                            <TextBlock Grid.Row="3" Text="{Binding Quantity, StringFormat='Количество: {0} шт.'}" Margin="0,5,0,0"/>
-                            <TextBlock Grid.Row="4" Text="{Binding Deadline, StringFormat='Срок до: {0:d}'}" Margin="0,5,0,0"/>
-                            <TextBlock Grid.Row="5" Text="{Binding Cost, StringFormat='Стоимость: {0:C2}'}" Margin="0,5,0,0"/>
-                            <TextBlock Grid.Row="6" Text="{Binding Status, StringFormat='Статус: {0}'}" Margin="0,5,0,0"/>
+                        <!-- КНОПКИ УПРАВЛЕНИЯ СТАТУСОМ -->
+                        <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
+                            <Button Content="⬅️ Предыдущий" 
+                        Command="{Binding DataContext.PreviousStatusCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        Margin="0,0,5,0" Padding="10,5"
+                        Visibility="{Binding CanMovePrevious, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-                            <Button Grid.Row="7" Content="Следующий статус" 
-                                    Command="{Binding DataContext.UpdateStatusCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    Margin="0,20,0,0" Padding="10,5"/>
-                        </Grid>
+                            <Button Content="Следующий ➡️" 
+                        Command="{Binding DataContext.NextStatusCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        Margin="5,0,0,0" Padding="10,5"
+                        Visibility="{Binding CanMoveNext, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        </StackPanel>
+
+                        <!-- КНОПКА РАСЧЕТА СТОИМОСТИ -->
+                        <Button Content="💰 Пересчитать стоимость" 
+                    Command="{Binding DataContext.CalculateCostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    Margin="0,10,0,0" Padding="10,5"
+                    Background="#27ae60" Foreground="White"/>
                     </StackPanel>
                 </ScrollViewer>
             </GroupBox>
         </Grid>
 
-        <!-- Статус бар -->
         <StatusBar Grid.Row="3" Margin="0,10,0,0">
             <StatusBarItem>
                 <TextBlock Text="{Binding Orders.Count, StringFormat='Всего заказов: {0}'}"/>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <TextBlock Text="Инжиниринг © 2024"/>
+                <TextBlock Text="Инжиниринг © 2025"/>
             </StatusBarItem>
         </StatusBar>
     </Grid>

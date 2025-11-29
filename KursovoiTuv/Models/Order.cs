@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace KursovoiTuv.Models
 {
-	internal class Order : INotifyPropertyChanged
+	public class Order : INotifyPropertyChanged
 	{
 		private OrderStatus _status;
 
@@ -26,6 +26,25 @@ namespace KursovoiTuv.Models
 			set { _status = value; OnPropertyChanged(); }
 		}
 		public string Priority { get; set; }
+
+		public bool CanMoveNext => Status < OrderStatus.Shipped;
+		public bool CanMovePrevious => Status > OrderStatus.New;
+
+		public void NextStatus()
+		{
+			if (CanMoveNext)
+			{
+				Status++;
+			}
+		}
+
+		public void PreviousStatus()
+		{
+			if (CanMovePrevious)
+			{
+				Status--;
+			}
+		}
 
 		public event PropertyChangedEventHandler PropertyChanged;
 		protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
