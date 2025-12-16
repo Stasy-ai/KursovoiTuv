@@ -12,10 +12,13 @@ namespace KursovoiTuv.ViewModel
 	public class MainViewModel : INotifyPropertyChanged
 	{
 		private Order _selectedOrder;
+		private Order _currentOrder;
 		private string _newOrderClient = "Новый клиент";
 		private string _newOrderProduct = "Новое изделие";
 		private string _newOrderQuantity = "1";
 		private string _newOrderPriority;
+		private bool _isEditing;
+		private int _nextOrderId;
 
 		public MainViewModel()
 		{
@@ -23,6 +26,11 @@ namespace KursovoiTuv.ViewModel
 			InitializeCommands();
 			LoadSampleData();
 			NewOrderPriority = Priority.Medium;
+
+			// Инициализируем текущий заказ для формы редактирования
+			CurrentOrder = new Order();
+			_isEditing = false;
+			_nextOrderId = Orders.Count > 0 ? GetMaxOrderId() + 1 : 1;
 		}
 
 		private const decimal BaseCostPerUnit = 1500m;
@@ -46,8 +54,35 @@ namespace KursovoiTuv.ViewModel
 				OnPropertyChanged();
 				OnPropertyChanged(nameof(CanExecuteNextStatus));
 				OnPropertyChanged(nameof(CanExecutePreviousStatus));
+				OnPropertyChanged(nameof(CanEditOrder));
+				OnPropertyChanged(nameof(CanDeleteOrder));
 			}
 		}
+
+		public Order CurrentOrder
+		{
+			get => _currentOrder;
+			set => SetProperty(ref _currentOrder, value);
+		}
+
+		public bool IsEditing
+		{
+			get => _isEditing;
+			set
+			{
+				if (SetProperty(ref _isEditing, value))
+				{
+					OnPropertyChanged(nameof(EditModeTitle));
+					OnPropertyChanged(nameof(CanAddOrder));
+				}
+			}
+		}
+
+		public string EditModeTitle => IsEditing ? "Редактирование заказа" : "Новый заказ";
+
+		public bool CanEditOrder => SelectedOrder != null && !IsEditing;
+		public bool CanDeleteOrder => SelectedOrder != null;
+		public bool CanAddOrder => !IsEditing;
 
 		public string NewOrderClient
 		{
@@ -78,14 +113,22 @@ namespace KursovoiTuv.ViewModel
 		public ICommand PreviousStatusCommand { get; private set; }
 		public ICommand CalculateCostCommand { get; private set; }
 		public ICommand OpenAboutCommand { get; private set; }
+		public ICommand EditOrderCommand { get; private set; }
+		public ICommand UpdateOrderCommand { get; private set; }
+		public ICommand DeleteOrderCommand { get; private set; }
+		public ICommand CancelEditCommand { get; private set; }
 
 		private void InitializeCommands()
 		{
-			AddOrderCommand = new RelayCommand(AddOrder);
+			AddOrderCommand = new RelayCommand(AddOrder, _ => CanAddOrder);
 			NextStatusCommand = new RelayCommand(NextOrderStatus, CanExecuteNextStatus);
 			PreviousStatusCommand = new RelayCommand(PreviousOrderStatus, CanExecutePreviousStatus);
 			CalculateCostCommand = new RelayCommand(CalculateCost);
 			OpenAboutCommand = new RelayCommand(OpenAboutWindow);
+			EditOrderCommand = new RelayCommand(EditOrder, _ => CanEditOrder);
+			UpdateOrderCommand = new RelayCommand(UpdateOrder, _ => IsEditing);
+			DeleteOrderCommand = new RelayCommand(DeleteOrder, _ => CanDeleteOrder);
+			CancelEditCommand = new RelayCommand(CancelEdit, _ => IsEditing);
 		}
 
 		private void LoadSampleData()
@@ -103,7 +146,7 @@ namespace KursovoiTuv.ViewModel
 					Deadline = DateTime.Now.AddDays(15),
 					Cost = 125000m,
 					Priority = Priority.High,
-					Status = OrderStatus.InProgress
+					Status = OrderStatus.New
 				},
 				new Order
 				{
@@ -116,7 +159,7 @@ namespace KursovoiTuv.ViewModel
 					Deadline = DateTime.Now.AddDays(25),
 					Cost = 89000m,
 					Priority = Priority.Medium,
-					Status = OrderStatus.New
+					Status = OrderStatus.InProgress
 				}
 			};
 
@@ -128,6 +171,17 @@ namespace KursovoiTuv.ViewModel
 			SelectedOrder = Orders.Count > 0 ? Orders[0] : null;
 		}
 
+		private int GetMaxOrderId()
+		{
+			int maxId = 0;
+			foreach (var order in Orders)
+			{
+				if (order.Id > maxId)
+					maxId = order.Id;
+			}
+			return maxId;
+		}
+
 		private void AddOrder(object parameter)
 		{
 			if (!ValidateNewOrder()) return;
@@ -137,6 +191,7 @@ namespace KursovoiTuv.ViewModel
 
 			Orders.Add(newOrder);
 			SelectedOrder = newOrder;
+			_nextOrderId++;
 			ResetOrderForm();
 		}
 
@@ -155,7 +210,7 @@ namespace KursovoiTuv.ViewModel
 		{
 			return new Order
 			{
-				Id = Orders.Count + 1,
+				Id = _nextOrderId,
 				OrderNumber = GenerateOrderNumber(),
 				ClientName = NewOrderClient,
 				ProductDescription = NewOrderProduct,
@@ -168,13 +223,14 @@ namespace KursovoiTuv.ViewModel
 			};
 		}
 
-		private string GenerateOrderNumber() => $"MP-{DateTime.Now:yyyyMMdd}-{Orders.Count + 1:000}";
+		private string GenerateOrderNumber() => $"MP-{DateTime.Now:yyyyMMdd}-{_nextOrderId:000}";
 
 		private void ResetOrderForm()
 		{
 			NewOrderClient = "Новый клиент";
 			NewOrderProduct = "Новое изделие";
 			NewOrderQuantity = "1";
+			NewOrderPriority = Priority.Medium;
 		}
 
 		private void CalculateCostForOrder(Order order)
@@ -215,6 +271,108 @@ namespace KursovoiTuv.ViewModel
 				OnPropertyChanged(nameof(CanExecuteNextStatus));
 				OnPropertyChanged(nameof(CanExecutePreviousStatus));
 			}
+		}
+
+		private void EditOrder(object parameter)
+		{
+			if (SelectedOrder == null) return;
+
+			// Создаем копию заказа для редактирования
+			CurrentOrder = new Order
+			{
+				Id = SelectedOrder.Id,
+				OrderNumber = SelectedOrder.OrderNumber,
+				ClientName = SelectedOrder.ClientName,
+				ProductDescription = SelectedOrder.ProductDescription,
+				Quantity = SelectedOrder.Quantity,
+				OrderDate = SelectedOrder.OrderDate,
+				Deadline = SelectedOrder.Deadline,
+				Cost = SelectedOrder.Cost,
+				Priority = SelectedOrder.Priority,
+				Status = SelectedOrder.Status
+			};
+
+			IsEditing = true;
+		}
+
+		private void UpdateOrder(object parameter)
+		{
+			if (SelectedOrder == null || CurrentOrder == null) return;
+
+			if (!ValidateEditOrder()) return;
+
+			// Обновляем выбранный заказ данными из формы редактирования
+			SelectedOrder.ClientName = CurrentOrder.ClientName;
+			SelectedOrder.ProductDescription = CurrentOrder.ProductDescription;
+			SelectedOrder.Quantity = CurrentOrder.Quantity;
+			SelectedOrder.Deadline = CurrentOrder.Deadline;
+			SelectedOrder.Priority = CurrentOrder.Priority;
+			SelectedOrder.Status = CurrentOrder.Status;
+
+			// Пересчитываем стоимость при изменении приоритета или количества
+			if (SelectedOrder.Priority != CurrentOrder.Priority || SelectedOrder.Quantity != CurrentOrder.Quantity)
+			{
+				CalculateCostForOrder(SelectedOrder);
+			}
+
+			// Обновляем привязки
+			OnPropertyChanged(nameof(SelectedOrder));
+			CancelEdit(parameter);
+		}
+
+		private bool ValidateEditOrder()
+		{
+			if (CurrentOrder.Quantity <= 0)
+			{
+				MessageBox.Show("Количество должно быть больше 0", "Ошибка",
+					MessageBoxButton.OK, MessageBoxImage.Error);
+				return false;
+			}
+
+			if (CurrentOrder.Deadline < CurrentOrder.OrderDate)
+			{
+				MessageBox.Show("Срок выполнения не может быть раньше даты заказа", "Ошибка",
+					MessageBoxButton.OK, MessageBoxImage.Error);
+				return false;
+			}
+
+			return true;
+		}
+
+		private void DeleteOrder(object parameter)
+		{
+			if (SelectedOrder == null) return;
+
+			var result = MessageBox.Show($"Вы уверены, что хотите удалить заказ {SelectedOrder.OrderNumber}?",
+				"Подтверждение удаления",
+				MessageBoxButton.YesNo,
+				MessageBoxImage.Question);
+
+			if (result == MessageBoxResult.Yes)
+			{
+				int index = Orders.IndexOf(SelectedOrder);
+				Orders.Remove(SelectedOrder);
+
+				// Выбираем следующий заказ, если есть
+				if (Orders.Count > 0)
+				{
+					if (index >= Orders.Count)
+						index = Orders.Count - 1;
+					SelectedOrder = Orders[index];
+				}
+				else
+				{
+					SelectedOrder = null;
+				}
+
+				OnPropertyChanged(nameof(Orders));
+			}
+		}
+
+		private void CancelEdit(object parameter)
+		{
+			IsEditing = false;
+			CurrentOrder = new Order(); // Сбрасываем форму редактирования
 		}
 
 		private void OpenAboutWindow(object parameter)
