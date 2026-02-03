@@ -1,0 +1,126 @@
+﻿<Window x:Class="KursovoiTuv.Views.AddOrderWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Добавить новый заказ" 
+        Height="500" 
+        Width="450"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Заголовок -->
+        <TextBlock Grid.Row="0" 
+                   Text="Новый производственный заказ"
+                   FontSize="18" 
+                   FontWeight="Bold"
+                   Margin="0,0,0,20"
+                   HorizontalAlignment="Center"/>
+
+        <!-- Форма -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <!-- Клиент -->
+                <TextBlock Text="Клиент:" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding ClientName, UpdateSourceTrigger=PropertyChanged}" 
+                         Margin="0,0,0,15" Padding="8" FontSize="14"/>
+
+                <!-- Изделие -->
+                <TextBlock Text="Изделие:" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding ProductDescription, UpdateSourceTrigger=PropertyChanged}" 
+                         Margin="0,0,0,15" Padding="8" FontSize="14"/>
+
+                <!-- Количество -->
+                <TextBlock Text="Количество:" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" 
+                         Margin="0,0,0,15" Padding="8" FontSize="14"/>
+
+                <!-- Приоритет -->
+                <TextBlock Text="Приоритет:" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                <ComboBox SelectedValue="{Binding Priority}" Margin="0,0,0,15" Padding="8" FontSize="14">
+                    <ComboBoxItem Content="Высокий"/>
+                    <ComboBoxItem Content="Средний"/>
+                    <ComboBoxItem Content="Низкий"/>
+                </ComboBox>
+
+                <!-- Предварительный расчет -->
+                <Border Background="#F0F8FF" 
+                        BorderThickness="1" 
+                        BorderBrush="#B0C4DE"
+                        CornerRadius="5"
+                        Padding="15"
+                        Margin="0,10">
+                    <StackPanel>
+                        <TextBlock Text="Предварительный расчет:"
+                                   FontWeight="Bold"
+                                   Margin="0,0,0,10"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" 
+                                       Text="Кол-во:"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" 
+                                       Text="{Binding Quantity}"
+                                       FontWeight="Bold"
+                                       HorizontalAlignment="Right"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" 
+                                       Text="Приоритет:" 
+                                       Margin="0,5,0,0"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" 
+                                       Text="{Binding Priority}"
+                                       FontWeight="Bold"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,5,0,0"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" 
+                                       Text="Стоимость:" 
+                                       Margin="0,5,0,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" 
+                                       Text="{Binding EstimatedCost, StringFormat={}{0:C}}"
+                                       FontWeight="Bold"
+                                       Foreground="#27AE60"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,5,0,0"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Кнопки -->
+        <StackPanel Grid.Row="2" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right"
+                    Margin="0,20,0,0">
+            <Button Content="Отмена" 
+                    Command="{Binding CancelCommand}"
+                    Background="#95A5A6"
+                    Foreground="White"
+                    Padding="12,8" Margin="10,0,0,0" 
+                    FontWeight="SemiBold" MinWidth="100"/>
+
+            <Button Content="Создать" 
+                    Command="{Binding SaveCommand}"
+                    Background="#27AE60"
+                    Foreground="White"
+                    Padding="12,8" Margin="10,0,0,0" 
+                    FontWeight="SemiBold" MinWidth="100"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,16 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
+﻿using System.Windows;
 
 namespace KursovoiTuv.Views
 {
@@ -19,39 +7,32 @@ namespace KursovoiTuv.Views
 		public LoginWindow()
 		{
 			InitializeComponent();
-
-			Loaded += (s, e) => UsernameTextBox.Focus();
-
-			KeyDown += LoginWindow_KeyDown;
+			Loaded += (s, e) => UsernameBox.Focus();
 		}
-
-
-		private void LoginWindow_KeyDown(object sender, KeyEventArgs e)
-		{
-			if (e.Key == Key.Enter)
-			{
-				LoginButton_Click(sender, e);
-			}
-			else if (e.Key == Key.Escape)
-			{
-				ExitButton_Click(sender, e);
-			}
-		}
-
 
 		private void LoginButton_Click(object sender, RoutedEventArgs e)
 		{
-			string username = UsernameTextBox.Text;
+			string username = UsernameBox.Text.Trim();
 			string password = PasswordBox.Password;
 
-			System.Diagnostics.Debug.WriteLine($"Попытка входа: {username} / {password}");
-
-			var mainWindow = new MainWindow();
-			mainWindow.Show();
-
-			this.Close();
+			// Простейшая проверка - ДЕМО РЕЖИМ
+			if ((username == "admin" || username == "manager" || username == "user")
+				&& password == "123")
+			{
+				// Успешный вход
+				var mainWindow = new MainWindow();
+				mainWindow.Show();
+				this.Close();
+			}
+			else
+			{
+				// Ошибка
+				ErrorText.Text = "Неверный логин или пароль";
+				ErrorText.Visibility = Visibility.Visible;
+				PasswordBox.Focus();
+				PasswordBox.SelectAll();
+			}
 		}
-
 
 		private void ExitButton_Click(object sender, RoutedEventArgs e)
 		{

@@ -1,401 +1,287 @@
-﻿using KursovoiTuv.Models;
+﻿using KursovoiTuv.Data;
+using KursovoiTuv.Models;
+using KursovoiTuv.Patterns.State;
+using KursovoiTuv.Services;
 using KursovoiTuv.Views;
 using System;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
 
 namespace KursovoiTuv.ViewModel
 {
-	public class MainViewModel : INotifyPropertyChanged
+	/// <summary>
+	/// Основная ViewModel приложения
+	/// </summary>
+	/// <remarks>
+	/// Управляет отображением заказов, обработкой команд
+	/// и навигацией между окнами приложения
+	/// </remarks>
+	public class MainViewModel : ObservableObject
 	{
 		private Order _selectedOrder;
-		private Order _currentOrder;
-		private string _newOrderClient = "Новый клиент";
-		private string _newOrderProduct = "Новое изделие";
-		private string _newOrderQuantity = "1";
-		private string _newOrderPriority;
-		private bool _isEditing;
-		private int _nextOrderId;
+		private readonly IOrderService _orderService;
+		private readonly IReportService _reportService;
 
+		/// <summary>
+		/// Конструктор основной ViewModel
+		/// </summary>
+		/// <param name="orderService">Сервис работы с заказами</param>
+		/// <param name="reportService">Сервис генерации отчетов</param>
 		public MainViewModel()
 		{
+			// Создаем зависимости ВРУЧНУЮ
+			var dbContext = new ApplicationDbContext();
+			var facade = new OrderDatabaseFacade(dbContext);
+			_orderService = new OrderService(facade);
+
 			Orders = new ObservableCollection<Order>();
 			InitializeCommands();
-			LoadSampleData();
-			NewOrderPriority = Priority.Medium;
-
-			// Инициализируем текущий заказ для формы редактирования
-			CurrentOrder = new Order();
-			_isEditing = false;
-			_nextOrderId = Orders.Count > 0 ? GetMaxOrderId() + 1 : 1;
+			LoadOrders();
 		}
 
-		private const decimal BaseCostPerUnit = 1500m;
-		private const int DefaultDeadlineDays = 30;
-
-		public static class Priority
-		{
-			public const string High = "Высокий";
-			public const string Medium = "Средний";
-			public const string Low = "Низкий";
-		}
-
+		/// <summary>
+		/// Коллекция заказов для отображения
+		/// </summary>
 		public ObservableCollection<Order> Orders { get; }
 
+		/// <summary>
+		/// Выбранный заказ
+		/// </summary>
 		public Order SelectedOrder
 		{
 			get => _selectedOrder;
 			set
 			{
-				_selectedOrder = value;
-				OnPropertyChanged();
-				OnPropertyChanged(nameof(CanExecuteNextStatus));
-				OnPropertyChanged(nameof(CanExecutePreviousStatus));
-				OnPropertyChanged(nameof(CanEditOrder));
-				OnPropertyChanged(nameof(CanDeleteOrder));
-			}
-		}
-
-		public Order CurrentOrder
-		{
-			get => _currentOrder;
-			set => SetProperty(ref _currentOrder, value);
-		}
-
-		public bool IsEditing
-		{
-			get => _isEditing;
-			set
-			{
-				if (SetProperty(ref _isEditing, value))
+				if (SetProperty(ref _selectedOrder, value))
 				{
-					OnPropertyChanged(nameof(EditModeTitle));
-					OnPropertyChanged(nameof(CanAddOrder));
+					OnPropertyChanged(nameof(CanMoveToNextStatus));
+					OnPropertyChanged(nameof(CanMoveToPreviousStatus));
 				}
 			}
 		}
 
-		public string EditModeTitle => IsEditing ? "Редактирование заказа" : "Новый заказ";
-
-		public bool CanEditOrder => SelectedOrder != null && !IsEditing;
-		public bool CanDeleteOrder => SelectedOrder != null;
-		public bool CanAddOrder => !IsEditing;
-
-		public string NewOrderClient
+		/// <summary>
+		/// Можно ли перейти к следующему статусу
+		/// </summary>
+		public bool CanMoveToNextStatus
 		{
-			get => _newOrderClient;
-			set => SetProperty(ref _newOrderClient, value);
+			get
+			{
+				if (SelectedOrder == null) return false;
+				var state = OrderStateFactory.CreateState(SelectedOrder.Status);
+				return state.CanMoveToNext;
+			}
 		}
 
-		public string NewOrderProduct
+		/// <summary>
+		/// Можно ли вернуться к предыдущему статусу
+		/// </summary>
+		public bool CanMoveToPreviousStatus
 		{
-			get => _newOrderProduct;
-			set => SetProperty(ref _newOrderProduct, value);
+			get
+			{
+				if (SelectedOrder == null) return false;
+				var state = OrderStateFactory.CreateState(SelectedOrder.Status);
+				return state.CanMoveToPrevious;
+			}
 		}
 
-		public string NewOrderQuantity
-		{
-			get => _newOrderQuantity;
-			set => SetProperty(ref _newOrderQuantity, value);
-		}
-
-		public string NewOrderPriority
-		{
-			get => _newOrderPriority;
-			set => SetProperty(ref _newOrderPriority, value);
-		}
-
+		// Команды
 		public ICommand AddOrderCommand { get; private set; }
+		public ICommand EditOrderCommand { get; private set; }
+		public ICommand DeleteOrderCommand { get; private set; }
 		public ICommand NextStatusCommand { get; private set; }
 		public ICommand PreviousStatusCommand { get; private set; }
-		public ICommand CalculateCostCommand { get; private set; }
+		public ICommand OpenReportsCommand { get; private set; }
 		public ICommand OpenAboutCommand { get; private set; }
-		public ICommand EditOrderCommand { get; private set; }
-		public ICommand UpdateOrderCommand { get; private set; }
-		public ICommand DeleteOrderCommand { get; private set; }
-		public ICommand CancelEditCommand { get; private set; }
 
+		/// <summary>
+		/// Инициализация команд
+		/// </summary>
 		private void InitializeCommands()
 		{
-			AddOrderCommand = new RelayCommand(AddOrder, _ => CanAddOrder);
-			NextStatusCommand = new RelayCommand(NextOrderStatus, CanExecuteNextStatus);
-			PreviousStatusCommand = new RelayCommand(PreviousOrderStatus, CanExecutePreviousStatus);
-			CalculateCostCommand = new RelayCommand(CalculateCost);
+			AddOrderCommand = new RelayCommand(OpenAddOrderWindow);
+			EditOrderCommand = new RelayCommand(OpenEditOrderWindow, _ => SelectedOrder != null);
+			DeleteOrderCommand = new RelayCommand(DeleteOrder, _ => SelectedOrder != null);
+			NextStatusCommand = new RelayCommand(MoveToNextStatus, _ => CanMoveToNextStatus);
+			PreviousStatusCommand = new RelayCommand(MoveToPreviousStatus, _ => CanMoveToPreviousStatus);
+			OpenReportsCommand = new RelayCommand(OpenReportsWindow);
 			OpenAboutCommand = new RelayCommand(OpenAboutWindow);
-			EditOrderCommand = new RelayCommand(EditOrder, _ => CanEditOrder);
-			UpdateOrderCommand = new RelayCommand(UpdateOrder, _ => IsEditing);
-			DeleteOrderCommand = new RelayCommand(DeleteOrder, _ => CanDeleteOrder);
-			CancelEditCommand = new RelayCommand(CancelEdit, _ => IsEditing);
 		}
 
-		private void LoadSampleData()
+		/// <summary>
+		/// Загрузить заказы из базы данных
+		/// </summary>
+		private void LoadOrders()
 		{
-			var sampleOrders = new[]
+			try
 			{
-				new Order
+				var orders = _orderService.GetAllOrders();
+				Orders.Clear();
+
+				foreach (var order in orders)
 				{
-					Id = 1,
-					OrderNumber = "MP-2024-001",
-					ClientName = "ООО 'СтройМеталл'",
-					ProductDescription = "Металлоконструкции L-12",
-					Quantity = 50,
-					OrderDate = DateTime.Now.AddDays(-5),
-					Deadline = DateTime.Now.AddDays(15),
-					Cost = 125000m,
-					Priority = Priority.High,
-					Status = OrderStatus.New
-				},
-				new Order
-				{
-					Id = 2,
-					OrderNumber = "MP-2024-002",
-					ClientName = "ЗАО 'МашПром'",
-					ProductDescription = "Валы стальные Ø80mm",
-					Quantity = 100,
-					OrderDate = DateTime.Now.AddDays(-2),
-					Deadline = DateTime.Now.AddDays(25),
-					Cost = 89000m,
-					Priority = Priority.Medium,
-					Status = OrderStatus.InProgress
+					Orders.Add(order);
 				}
-			};
 
-			foreach (var order in sampleOrders)
-			{
-				Orders.Add(order);
+				SelectedOrder = Orders.Count > 0 ? Orders[0] : null;
 			}
-
-			SelectedOrder = Orders.Count > 0 ? Orders[0] : null;
-		}
-
-		private int GetMaxOrderId()
-		{
-			int maxId = 0;
-			foreach (var order in Orders)
+			catch (Exception ex)
 			{
-				if (order.Id > maxId)
-					maxId = order.Id;
-			}
-			return maxId;
-		}
-
-		private void AddOrder(object parameter)
-		{
-			if (!ValidateNewOrder()) return;
-
-			var newOrder = CreateNewOrder();
-			CalculateCostForOrder(newOrder);
-
-			Orders.Add(newOrder);
-			SelectedOrder = newOrder;
-			_nextOrderId++;
-			ResetOrderForm();
-		}
-
-		private bool ValidateNewOrder()
-		{
-			if (!int.TryParse(NewOrderQuantity, out int quantity) || quantity <= 0)
-			{
-				MessageBox.Show("Введите корректное количество", "Ошибка",
-					MessageBoxButton.OK, MessageBoxImage.Error);
-				return false;
-			}
-			return true;
-		}
-
-		private Order CreateNewOrder()
-		{
-			return new Order
-			{
-				Id = _nextOrderId,
-				OrderNumber = GenerateOrderNumber(),
-				ClientName = NewOrderClient,
-				ProductDescription = NewOrderProduct,
-				Quantity = int.Parse(NewOrderQuantity),
-				OrderDate = DateTime.Now,
-				Deadline = DateTime.Now.AddDays(DefaultDeadlineDays),
-				Priority = NewOrderPriority,
-				Status = OrderStatus.New,
-				Cost = 0
-			};
-		}
-
-		private string GenerateOrderNumber() => $"MP-{DateTime.Now:yyyyMMdd}-{_nextOrderId:000}";
-
-		private void ResetOrderForm()
-		{
-			NewOrderClient = "Новый клиент";
-			NewOrderProduct = "Новое изделие";
-			NewOrderQuantity = "1";
-			NewOrderPriority = Priority.Medium;
-		}
-
-		private void CalculateCostForOrder(Order order)
-		{
-			if (order == null) return;
-
-			decimal multiplier = order.Priority switch
-			{
-				Priority.High => 1.2m,
-				Priority.Low => 0.8m,
-				_ => 1.0m
-			};
-
-			order.Cost = order.Quantity * BaseCostPerUnit * multiplier;
-		}
-
-		private void CalculateCost(object parameter) => CalculateCostForOrder(SelectedOrder);
-
-		private bool CanExecuteNextStatus(object parameter) => SelectedOrder?.CanMoveNext ?? false;
-
-		private void NextOrderStatus(object parameter)
-		{
-			if (SelectedOrder?.CanMoveNext == true)
-			{
-				SelectedOrder.NextStatus();
-				OnPropertyChanged(nameof(CanExecuteNextStatus));
-				OnPropertyChanged(nameof(CanExecutePreviousStatus));
+				MessageBox.Show($"Ошибка загрузки заказов: {ex.Message}",
+					"Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
 			}
 		}
 
-		private bool CanExecutePreviousStatus(object parameter) => SelectedOrder?.CanMovePrevious ?? false;
-
-		private void PreviousOrderStatus(object parameter)
+		/// <summary>
+		/// Открыть окно добавления заказа
+		/// </summary>
+		private void OpenAddOrderWindow(object parameter)
 		{
-			if (SelectedOrder?.CanMovePrevious == true)
+			try
 			{
-				SelectedOrder.PreviousStatus();
-				OnPropertyChanged(nameof(CanExecuteNextStatus));
-				OnPropertyChanged(nameof(CanExecutePreviousStatus));
+				// Простое открытие окна
+				var window = new AddOrderWindow();
+
+				// Создаем ViewModel
+				var viewModel = new AddOrderViewModel(_orderService);
+				window.DataContext = viewModel;
+
+				window.ShowDialog();
+
+				// Обновляем список после закрытия
+				LoadOrders();
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show($"Ошибка открытия окна: {ex.Message}", "Ошибка");
 			}
 		}
 
-		private void EditOrder(object parameter)
+		/// <summary>
+		/// Открыть окно редактирования заказа
+		/// </summary>
+		private void OpenEditOrderWindow(object parameter)
 		{
 			if (SelectedOrder == null) return;
 
-			// Создаем копию заказа для редактирования
-			CurrentOrder = new Order
-			{
-				Id = SelectedOrder.Id,
-				OrderNumber = SelectedOrder.OrderNumber,
-				ClientName = SelectedOrder.ClientName,
-				ProductDescription = SelectedOrder.ProductDescription,
-				Quantity = SelectedOrder.Quantity,
-				OrderDate = SelectedOrder.OrderDate,
-				Deadline = SelectedOrder.Deadline,
-				Cost = SelectedOrder.Cost,
-				Priority = SelectedOrder.Priority,
-				Status = SelectedOrder.Status
-			};
+			var editOrderViewModel = new AddOrderViewModel(_orderService, SelectedOrder);
+			editOrderViewModel.OrderSaved += OnOrderSaved;
 
-			IsEditing = true;
+			var window = new AddOrderWindow { DataContext = editOrderViewModel };
+			window.ShowDialog();
 		}
 
-		private void UpdateOrder(object parameter)
-		{
-			if (SelectedOrder == null || CurrentOrder == null) return;
-
-			if (!ValidateEditOrder()) return;
-
-			// Обновляем выбранный заказ данными из формы редактирования
-			SelectedOrder.ClientName = CurrentOrder.ClientName;
-			SelectedOrder.ProductDescription = CurrentOrder.ProductDescription;
-			SelectedOrder.Quantity = CurrentOrder.Quantity;
-			SelectedOrder.Deadline = CurrentOrder.Deadline;
-			SelectedOrder.Priority = CurrentOrder.Priority;
-			SelectedOrder.Status = CurrentOrder.Status;
-
-			// Пересчитываем стоимость при изменении приоритета или количества
-			if (SelectedOrder.Priority != CurrentOrder.Priority || SelectedOrder.Quantity != CurrentOrder.Quantity)
-			{
-				CalculateCostForOrder(SelectedOrder);
-			}
-
-			// Обновляем привязки
-			OnPropertyChanged(nameof(SelectedOrder));
-			CancelEdit(parameter);
-		}
-
-		private bool ValidateEditOrder()
-		{
-			if (CurrentOrder.Quantity <= 0)
-			{
-				MessageBox.Show("Количество должно быть больше 0", "Ошибка",
-					MessageBoxButton.OK, MessageBoxImage.Error);
-				return false;
-			}
-
-			if (CurrentOrder.Deadline < CurrentOrder.OrderDate)
-			{
-				MessageBox.Show("Срок выполнения не может быть раньше даты заказа", "Ошибка",
-					MessageBoxButton.OK, MessageBoxImage.Error);
-				return false;
-			}
-
-			return true;
-		}
-
+		/// <summary>
+		/// Удалить выбранный заказ
+		/// </summary>
 		private void DeleteOrder(object parameter)
 		{
 			if (SelectedOrder == null) return;
 
-			var result = MessageBox.Show($"Вы уверены, что хотите удалить заказ {SelectedOrder.OrderNumber}?",
-				"Подтверждение удаления",
-				MessageBoxButton.YesNo,
-				MessageBoxImage.Question);
+			var result = MessageBox.Show($"Удалить заказ {SelectedOrder.OrderNumber}?",
+				"Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
 			if (result == MessageBoxResult.Yes)
 			{
-				int index = Orders.IndexOf(SelectedOrder);
-				Orders.Remove(SelectedOrder);
-
-				// Выбираем следующий заказ, если есть
-				if (Orders.Count > 0)
+				try
 				{
-					if (index >= Orders.Count)
-						index = Orders.Count - 1;
-					SelectedOrder = Orders[index];
-				}
-				else
-				{
-					SelectedOrder = null;
-				}
+					bool success = _orderService.DeleteOrder(SelectedOrder.Id);
 
-				OnPropertyChanged(nameof(Orders));
+					if (success)
+					{
+						Orders.Remove(SelectedOrder);
+						MessageBox.Show("Заказ удален", "Успех",
+							MessageBoxButton.OK, MessageBoxImage.Information);
+					}
+				}
+				catch (Exception ex)
+				{
+					MessageBox.Show($"Ошибка удаления: {ex.Message}",
+						"Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+				}
 			}
 		}
 
-		private void CancelEdit(object parameter)
+		/// <summary>
+		/// Перейти к следующему статусу
+		/// </summary>
+		private void MoveToNextStatus(object parameter)
 		{
-			IsEditing = false;
-			CurrentOrder = new Order(); // Сбрасываем форму редактирования
+			if (SelectedOrder == null) return;
+
+			var currentState = OrderStateFactory.CreateState(SelectedOrder.Status);
+			if (currentState.CanMoveToNext)
+			{
+				var nextState = currentState.NextState();
+				nextState.ApplyStatus(SelectedOrder);
+
+				try
+				{
+					_orderService.UpdateOrder(SelectedOrder);
+					OnPropertyChanged(nameof(CanMoveToNextStatus));
+					OnPropertyChanged(nameof(CanMoveToPreviousStatus));
+				}
+				catch (Exception ex)
+				{
+					MessageBox.Show($"Ошибка обновления статуса: {ex.Message}",
+						"Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+				}
+			}
 		}
 
+		/// <summary>
+		/// Вернуться к предыдущему статусу
+		/// </summary>
+		private void MoveToPreviousStatus(object parameter)
+		{
+			if (SelectedOrder == null) return;
+
+			var currentState = OrderStateFactory.CreateState(SelectedOrder.Status);
+			if (currentState.CanMoveToPrevious)
+			{
+				var previousState = currentState.PreviousState();
+				previousState.ApplyStatus(SelectedOrder);
+
+				try
+				{
+					_orderService.UpdateOrder(SelectedOrder);
+					OnPropertyChanged(nameof(CanMoveToNextStatus));
+					OnPropertyChanged(nameof(CanMoveToPreviousStatus));
+				}
+				catch (Exception ex)
+				{
+					MessageBox.Show($"Ошибка обновления статуса: {ex.Message}",
+						"Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Открыть окно отчетов
+		/// </summary>
+		private void OpenReportsWindow(object parameter)
+		{
+			var window = new ReportsWindow();
+			window.ShowDialog();
+		}
+
+		/// <summary>
+		/// Открыть окно "О программе"
+		/// </summary>
 		private void OpenAboutWindow(object parameter)
 		{
-			var aboutWindow = new AboutWindow { Owner = Application.Current.MainWindow };
-			aboutWindow.ShowDialog();
+			var window = new AboutWindow();
+			window.ShowDialog();
 		}
 
-		private void ExitApplication(object parameter) => Application.Current.Shutdown();
-
-		public event PropertyChangedEventHandler PropertyChanged;
-
-		protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+		/// <summary>
+		/// Обработчик сохранения заказа
+		/// </summary>
+		private void OnOrderSaved()
 		{
-			PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-		}
-
-		protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
-		{
-			if (Equals(field, value)) return false;
-			field = value;
-			OnPropertyChanged(propertyName);
-			return true;
+			LoadOrders(); // Перезагружаем список заказов
 		}
 	}
 }
